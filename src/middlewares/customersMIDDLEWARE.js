@@ -1,4 +1,4 @@
-import { customerSchemma } from "../models/customers.js";
+import { customerSchemma } from "../models/customersJOI.js";
 import { connectionDB } from "../database/db.js";
 
 export async function validSchemaCustomer(req, res, next) {

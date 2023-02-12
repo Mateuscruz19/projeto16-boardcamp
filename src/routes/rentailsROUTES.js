@@ -1,12 +1,20 @@
-import { checkOut, create, deleteOne, findAll } from "../controllers/rentalsCONTROLLER.js";
-import express from 'express';
-import { validateRentals } from "../middlewares/rentMIDDLEWARE.js";
+import { Router } from "express";
+import {
+  create,
+  findAll,
+  returnGame,
+  remove,
+} from "../controllers/rentalsCONTROLLER.js";
+import {
+  validSchemaRentals,
+  gamesAvailableInStock,
+} from "../middlewares/rentMIDDLEWARE.js";
 
-const router = express.Router();
+const router = Router();
 
-router.post("/rentals", validateRentals, create);
+router.post("/rentals", validSchemaRentals, gamesAvailableInStock, create);
 router.get("/rentals", findAll);
-router.delete("/rentals/:id", deleteOne)
-router.post("/rentals/:id/return",checkOut)
+router.post("/rentals/:id/return", returnGame);
+router.delete("/rentals/:id", remove);
 
 export default router;

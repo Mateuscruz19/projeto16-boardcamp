@@ -1,7 +1,11 @@
 import joi from "joi";
 
-export const rentalsSchema = joi.object({
-    customerId: joi.number().required(),
-    gameId: joi.number().required(),
-    daysRented: joi.number().positive().integer().required(),
-})
+export const rentalSchemma = joi.object({
+  customerId: joi.number().required(),
+  gameId: joi.number().required(),
+  rentDate: joi.date().required(),
+  daysRented: joi.number().positive().required(),
+  returnDate: joi.date().allow(null),
+  originalPrice: joi.number().required(),
+  delayFee: joi.number().allow(null),
+});

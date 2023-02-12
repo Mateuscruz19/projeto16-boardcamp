@@ -19,7 +19,7 @@ export async function create(req, res) {
 
 } catch (err) {
     console.log(err)
-    return res.sendStatus(500)
+    return res.sendStatus(400)
 }
 }
 export async function findAll(req, res) {
@@ -61,44 +61,40 @@ export async function returnGame(req, res) {
   const { id } = req.params;
 
   try {
-    const result = await connectionDB.query(
-      "SELECT * FROM rentals WHERE id=$1",
-      [id]
-    );
 
-    const rental = result.rows[0];
+    const returnDate = new Date(Date.now())
 
-    if (result.rowCount === 0) return res.sendStatus(404);
-    if (rental.returnDate) return res.sendStatus(400);
+    const { rentDate, daysRented, gameId } = req.rental.rows[0]
 
-    const diffInTime =
-      new Date().getTime() - new Date(rental.rentDate).getTime();
-    const diffInDays = Math.floor(diffInTime / (24 * 3600 * 1000));
+     const gamePrice = await connectionDB.query('SELECT * FROM games WHERE id = $1', [gameId])
+     const pricePerDay = gamePrice.rows[0].pricePerDay
 
-    let delayFee = 0;
+    const shouldReturnDate = rentDate
 
-    if (diffInDays > rental.daysRented) {
+    shouldReturnDate.setDate(shouldReturnDate.getDate() + daysRented)
 
-      const addicionalDays = diffInDays - rental.daysRented;
-      delayFee = addicionalDays * rental.originalPrice;
-      
+    let daysDiff = 0
+
+    if (shouldReturnDate.getTime() < returnDate.getTime()) {
+
+        let timeDiff = returnDate.getTime() - shouldReturnDate.getTime();
+
+        daysDiff = Math.floor(timeDiff / (1000 * 3600 * 24));
     }
 
-    const daysDiff =  Math.floor(delayFee / (24 * 3600 * 1000));
+    const delayFee = pricePerDay * daysDiff
 
     await connectionDB.query(
-      `
-        UPDATE rentals
-        SET "returnDate" = NOW(), "delayFee" = $1
-        WHERE id=$2
-     `,
-      [delayFee, id]
-    );
+        `UPDATE rentals SET "delayFee" = $1, "returnDate" = $2 
+        WHERE id = $3`,
+        [delayFee, returnDate, id]
+    )
+    return res.sendStatus(200)
 
-    res.sendStatus(200);
-  } catch (err) {
-    res.status(500).send(err.message);
-  }
+} catch (err) {
+    console.log(err)
+    return res.sendStatus(400)
+}
 }
 
 

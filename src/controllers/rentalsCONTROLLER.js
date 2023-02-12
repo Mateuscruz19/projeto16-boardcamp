@@ -1,72 +1,61 @@
 import { connectionDB } from "../database/db.js";
+import dayjs from "dayjs";
 
 export async function create(req, res) {
-  const {
-    customerId,
-    gameId,
-    daysRented,
-    rentDate,
-    originalPrice,
-    returnDate,
-    delayFee,
-  } = res.locals.rental;
+    const { customerId, gameId, daysRented } = req.body
+    const rentDate = dayjs(Date.now()).format('YYYY-MM-DD')
 
   try {
-    await connectionDB.query(
-      `INSERT INTO rentals ("customerId","gameId","daysRented", "rentDate", "originalPrice", "returnDate", "delayFee") VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [
-        customerId,
-        gameId,
-        daysRented,
-        rentDate,
-        originalPrice,
-        returnDate,
-        delayFee,
-      ]
-    );
 
-    res.sendStatus(201);
-  } catch (err) {
-    res.status(500).send(err.message);
-  }
+    const gamePrice = await connectionDB.query('SELECT * FROM games WHERE id = $1', [gameId])
+    const gamePricePerDay =  gamePrice.rows[0].pricePerDay    
+    const originalPrice = gamePricePerDay * daysRented
+
+    await connectionDB.query(
+        `INSERT INTO rentals ("customerId", "gameId", "daysRented", "rentDate", "originalPrice") 
+        VALUES ($1, $2, $3, $4, $5)`,
+        [customerId, gameId, daysRented, rentDate, originalPrice])
+    return res.sendStatus(201)
+
+} catch (err) {
+    console.log(err)
+    return res.sendStatus(500)
+}
 }
 export async function findAll(req, res) {
-  const { customerId, gameId } = req.query;
+    const { customerId, gameId, order, desc, offset, limit, status, startDate } = req.query;
 
-  const queryGlobal = `
-    SELECT rentals.*, 
-        customers.id AS "idCustomer", 
-        customers.name AS "customerName", 
-        games.id AS "idGame", 
-        games.name AS "gameName"
-    FROM
-        rentals
-    JOIN
-        customers
-    ON
-        rentals."customerId" = customers.id
-    JOIN
-        games
-    ON
-        games.id = rentals."gameId"
-  `;
+    let parameters = []
+    let query = `
+    SELECT
+    rentals.*,
+    
+    json_build_object(
+        'id', customers.id,
+        'name', customers."name"
+    ) AS customer,
+    json_build_object(
+        'id', games.id,
+        'name', games."name"
+    ) AS game
+    FROM rentals
+    
+    INNER JOIN customers ON rentals."customerId" = customers.id
+    INNER JOIN games ON rentals."gameId" = games.id
+`
 
   try {
-    const { rows } = customerId
-      ? await connectionDB.query(queryGlobal + 'WHERE "customerId"=$1', [
-          Number(customerId),
-        ])
-      : gameId
-      ? await connectionDB.query(queryGlobal + 'WHERE "gameId"=$1', [
-          Number(gameId),
-        ])
-      : await connectionDB.query(queryGlobal);
+    let rentals = await connectionDB.query(query, parameters)
 
-    res.send(rows);
+    if (status) rentals = filterRentalsByStatus(rentals, status)
+    if (startDate) rentals = filterRentalsByStartDate(rentals, startDate)
+
+    return res.send(rentals.rows)
   } catch (err) {
     res.status(500).send(err.message);
   }
 }
+
 export async function returnGame(req, res) {
   const { id } = req.params;
 
@@ -86,10 +75,15 @@ export async function returnGame(req, res) {
     const diffInDays = Math.floor(diffInTime / (24 * 3600 * 1000));
 
     let delayFee = 0;
+
     if (diffInDays > rental.daysRented) {
+
       const addicionalDays = diffInDays - rental.daysRented;
       delayFee = addicionalDays * rental.originalPrice;
+      
     }
+
+    const daysDiff =  Math.floor(delayFee / (24 * 3600 * 1000));
 
     await connectionDB.query(
       `
@@ -105,6 +99,9 @@ export async function returnGame(req, res) {
     res.status(500).send(err.message);
   }
 }
+
+
+
 export async function remove(req, res) {
   const { id } = req.params;
 

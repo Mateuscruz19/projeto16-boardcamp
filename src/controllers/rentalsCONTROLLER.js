@@ -59,21 +59,15 @@ export async function findAll(req, res) {
 export async function returnGame(req, res) {
     
   const { id } = req.params;
+  let daysDiff = 0
+  const returnDate = new Date(Date.now())
+  const { rentDate, daysRented, gameId } = req.rental.rows[0]
+  const shouldReturnDate = rentDate
+  shouldReturnDate.setDate(shouldReturnDate.getDate() + daysRented)
 
   try {
-
-    const returnDate = new Date(Date.now())
-
-    const { rentDate, daysRented, gameId } = req.rental.rows[0]
-
      const gamePrice = await connectionDB.query('SELECT * FROM games WHERE id = $1', [gameId])
      const pricePerDay = gamePrice.rows[0].pricePerDay
-
-    const shouldReturnDate = rentDate
-
-    shouldReturnDate.setDate(shouldReturnDate.getDate() + daysRented)
-
-    let daysDiff = 0
 
     if (shouldReturnDate.getTime() < returnDate.getTime()) {
 

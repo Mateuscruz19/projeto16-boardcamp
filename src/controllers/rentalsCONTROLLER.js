@@ -59,31 +59,37 @@ export async function findAll(req, res) {
 export async function returnGame(req, res) {
     
   const { id } = req.params;
-  let daysDiff = 0
-  const returnDate = new Date(Date.now())
-  const { rentDate, daysRented, gameId } = req.rental.rows[0]
-  const shouldReturnDate = rentDate
-  shouldReturnDate.setDate(shouldReturnDate.getDate() + daysRented)
 
   try {
+    const returnDate = new Date(Date.now())
+    const { rentDate, daysRented, gameId } = req.rental.rows[0]
+
      const gamePrice = await connectionDB.query('SELECT * FROM games WHERE id = $1', [gameId])
      const pricePerDay = gamePrice.rows[0].pricePerDay
 
-    if (shouldReturnDate.getTime() < returnDate.getTime()) {
+     const shouldReturnDate = structuredClone(rentDate)
 
-        let timeDiff = returnDate.getTime() - shouldReturnDate.getTime();
-
-        daysDiff = Math.floor(timeDiff / (1000 * 3600 * 24));
-    }
+     shouldReturnDate.setDate(shouldReturnDate.getDate() + daysRented)
+ 
+     let Diff = 0
+ 
+     if (shouldReturnDate.getTime() < returnDate.getTime()) {
+ 
+         let timeDiff = returnDate.getTime() - shouldReturnDate.getTime();
+ 
+         Diff = Math.floor(timeDiff / (1000 * 3600 * 24));
+     }
+ 
+     let daysDiff = Diff
 
     const delayFee = pricePerDay * daysDiff
 
-    await connectionDB.query(
-        `UPDATE rentals SET "delayFee" = $1, "returnDate" = $2 
-        WHERE id = $3`,
-        [delayFee, returnDate, id]
-    )
-    return res.sendStatus(200)
+        await connectionDB.query(
+            `UPDATE rentals SET "delayFee" = $1, "returnDate" = $2 
+            WHERE id = $3`,
+            [delayFee, returnDate, id]
+        )
+        return res.sendStatus(200)
 
 } catch (err) {
     console.log(err)

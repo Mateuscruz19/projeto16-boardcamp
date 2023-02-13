@@ -66,51 +66,31 @@ export async function returnGame(req, res) {
     
   const { id } = req.params;
 
- try {
-    const result = await connectionDB.query(
-      "SELECT * FROM rentals WHERE id=$1",
-      [id]
-    );
+  try {
+    let rental = await db.query('SELECT * FROM rentals WHERE "id" = $1', [id]);
+    rental = rental.rows[0];
+    if (!rental) return res.sendStatus(404);
 
-    const rental = result.rows[0];
-
-    if (result.rowCount === 0) return res.sendStatus(404);
     if (rental.returnDate) return res.sendStatus(400);
 
-    const returnDate = new Date(Date.now())
-    const { rentDate, daysRented, gameId } = req.rental.rows[0]
+    const returnDate = dayjs().format();
 
-    const gamePrice = await connectionDB.query('SELECT * FROM games WHERE id = $1', [gameId])
-    const pricePerDay = gamePrice.rows[0].pricePerDay
+    const dateExpiresAt = dayjs(rental.rentDate).add(rental.daysRented, 'day');
 
-    const shouldReturnDate = rentDate
+    let delayFee = null;
 
-  shouldReturnDate.setDate(shouldReturnDate.getDate() + daysRented)
+    const diffDays = dayjs().diff(dateExpiresAt, 'day');
 
-  let daysDiff = 0
+    if (diffDays > 0) delayFee = diffDays * (rental.originalPrice / rental.daysRented);
 
-  if (shouldReturnDate.getTime() < returnDate.getTime()) {
+    await db.query('UPDATE rentals SET "returnDate" = $1, "delayFee" = $2 WHERE "id" = $3', [returnDate, delayFee, id]);
 
-      let timeDiff = returnDate.getTime() - shouldReturnDate.getTime();
-
-      daysDiff = Math.floor(timeDiff / (1000 * 3600 * 24));
-
-  }
-
-  const delayFee = pricePerDay * daysDiff
-
-    await connectionDB.query(
-      `UPDATE rentals SET "delayFee" = $1, "returnDate" = $2 
-            WHERE id = $3`,
-            [delayFee, returnDate, id]
-        );
-
-        
-        return res.sendStatus(200)
+    return res.sendStatus(200);
   } catch (err) {
-    res.status(400).send(err.message);
+    return res.status(400).send(err);
   }
 }
+
 
 
 

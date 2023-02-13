@@ -44,7 +44,7 @@ export async function validSchemaRentals(req, res, next) {
     res.locals.game = game;
     next();
   } catch (err) {
-    res.status(500).send(err.message);
+    res.status(400).send(err.message);
   }
 }
 
@@ -65,6 +65,6 @@ export async function gamesAvailableInStock(req, res, next) {
 
     next();
   } catch (err) {
-    res.status(500).send(err.message);
+    res.status(400).send(err.message);
   }
 }

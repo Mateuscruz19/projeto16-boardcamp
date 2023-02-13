@@ -19,7 +19,7 @@ export async function create(req, res) {
 
 } catch (err) {
     console.log(err)
-    return res.sendStatus(500)
+    return res.sendStatus(400)
 }
 }
 
@@ -66,7 +66,7 @@ export async function returnGame(req, res) {
     
   const { id } = req.params;
 
-  try {
+ try {
     const result = await connectionDB.query(
       "SELECT * FROM rentals WHERE id=$1",
       [id]
@@ -77,33 +77,38 @@ export async function returnGame(req, res) {
     if (result.rowCount === 0) return res.sendStatus(404);
     if (rental.returnDate) return res.sendStatus(400);
 
-    const diffInTime =
-      new Date().getTime() - new Date(rental.rentDate).getTime();
-    const diffInDays = Math.floor(diffInTime / (24 * 3600 * 1000));
+    const returnDate = new Date(Date.now())
+    const { rentDate, daysRented, gameId } = req.rental.rows[0]
 
-    let delayFee = 0;
+    const gamePrice = await connectionDB.query('SELECT * FROM games WHERE id = $1', [gameId])
+    const pricePerDay = gamePrice.rows[0].pricePerDay
 
-    if (diffInDays > rental.daysRented) {
+    const shouldReturnDate = rentDate
 
-      const addicionalDays = diffInDays - rental.daysRented;
-      delayFee = addicionalDays * rental.originalPrice;
-      
-    }
+  shouldReturnDate.setDate(shouldReturnDate.getDate() + daysRented)
 
-    const daysDiff =  Math.floor(delayFee / (24 * 3600 * 1000));
+  let daysDiff = 0
+
+  if (shouldReturnDate.getTime() < returnDate.getTime()) {
+
+      let timeDiff = returnDate.getTime() - shouldReturnDate.getTime();
+
+      daysDiff = Math.floor(timeDiff / (1000 * 3600 * 24));
+
+  }
+
+  const delayFee = pricePerDay * daysDiff
 
     await connectionDB.query(
-      `
-        UPDATE rentals
-        SET "returnDate" = NOW(), "delayFee" = $1
-        WHERE id=$2
-     `,
-      [delayFee, id]
-    );
+      `UPDATE rentals SET "delayFee" = $1, "returnDate" = $2 
+            WHERE id = $3`,
+            [delayFee, returnDate, id]
+        );
 
-    res.sendStatus(200);
+        
+        return res.sendStatus(200)
   } catch (err) {
-    res.status(500).send(err.message);
+    res.status(400).send(err.message);
   }
 }
 
@@ -126,6 +131,6 @@ export async function remove(req, res) {
     await connectionDB.query("DELETE FROM rentals WHERE id=$1", [id]);
     res.sendStatus(200);
   } catch (err) {
-    res.status(500).send(err.message);
+    res.status(400).send(err.message);
   }
 }

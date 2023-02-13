@@ -62,36 +62,6 @@ export async function findAll(req, res) {
   }
 }
 
-export async function returnGame(req, res) {
-    
-  const { id } = req.params;
-
-  try {
-    let rental = await db.query('SELECT * FROM rentals WHERE "id" = $1', [id]);
-    rental = rental.rows[0];
-    if (!rental) return res.sendStatus(404);
-
-    if (rental.returnDate) return res.sendStatus(400);
-
-    const returnDate = dayjs().format();
-
-    const dateExpiresAt = dayjs(rental.rentDate).add(rental.daysRented, 'day');
-
-    let delayFee = null;
-
-    const diffDays = dayjs().diff(dateExpiresAt, 'day');
-
-    if (diffDays > 0) delayFee = diffDays * (rental.originalPrice / rental.daysRented);
-
-    await db.query('UPDATE rentals SET "returnDate" = $1, "delayFee" = $2 WHERE "id" = $3', [returnDate, delayFee, id]);
-
-    return res.sendStatus(200);
-  } catch (err) {
-    return res.status(400).send(err);
-  }
-}
-
-
 
 
 export async function remove(req, res) {
@@ -112,5 +82,35 @@ export async function remove(req, res) {
     res.sendStatus(200);
   } catch (err) {
     res.status(400).send(err.message);
+  }
+}
+
+
+export async function returnGame(req, res) {
+    
+  const { id } = req.params;
+
+  try {
+    let rental = await connectionDB.query('SELECT * FROM rentals WHERE "id" = $1', [id]);
+    rental = rental.rows[0];
+    if (!rental) return res.sendStatus(404);
+
+    if (rental.returnDate) return res.sendStatus(400);
+
+    const returnDate = dayjs().format();
+
+    const dateExpiresAt = dayjs(rental.rentDate).add(rental.daysRented, 'day');
+
+    let delayFee = null;
+
+    const diffDays = dayjs().diff(dateExpiresAt, 'day');
+
+    if (diffDays > 0) delayFee = diffDays * (rental.originalPrice / rental.daysRented);
+
+    await connectionDB.query('UPDATE rentals SET "returnDate" = $1, "delayFee" = $2 WHERE "id" = $3', [returnDate, delayFee, id]);
+
+    return res.sendStatus(200);
+  } catch (err) {
+    return res.status(400).send(err);
   }
 }

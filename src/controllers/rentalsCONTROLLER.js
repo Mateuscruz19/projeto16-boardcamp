@@ -1,8 +1,10 @@
 import { connectionDB } from "../database/db.js";
 import dayjs from "dayjs";
 
-export async function create(req, res) {
+export async function Push(req, res) {
+
     const { customerId, gameId, daysRented } = req.body
+
     const rentDate = dayjs(Date.now()).format('YYYY-MM-DD')
 
   try {
@@ -100,8 +102,10 @@ export async function returnGame(req, res) {
   const { id } = req.params;
 
   try {
+
     let rental = await connectionDB.query('SELECT * FROM rentals WHERE "id" = $1', [id]);
     rental = rental.rows[0];
+    
     if (!rental) return res.sendStatus(404);
 
     if (rental.returnDate) return res.sendStatus(400);

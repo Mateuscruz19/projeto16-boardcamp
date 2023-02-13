@@ -2,20 +2,14 @@ import { connectionDB } from "../database/db.js";
 import dayjs from "dayjs";
 
 export async function create(req, res) {
-  const {
-    customerId,
-    gameId,
-    daysRented,
-    error,
-  } = await validateStoreRentalsSchema(req.body);
-
-  if (error) return res.status(error.code).send(error.message);
+    const { customerId, gameId, daysRented } = req.body
+    const rentDate = dayjs(Date.now()).format('YYYY-MM-DD')
 
   try {
-    let customer = await connectionDB.query('SELECT * FROM customers WHERE "id" = $1', [customerId]);
-    customer = customer.rows[0];
-    if (!customer) return res.sendStatus(409);
 
+    const gamePrice = await connectionDB.query('SELECT * FROM games WHERE id = $1', [gameId])
+    const gamePricePerDay =  gamePrice.rows[0].pricePerDay    
+    
     let game = await connectionDB.query('SELECT * FROM games WHERE "id" = $1', [gameId]);
     game = game.rows[0];
     if (!game) return res.sendStatus(409);
@@ -24,17 +18,18 @@ export async function create(req, res) {
 
     if (game.stockTotal <= quantityGameRented.rows[0].quantity) return res.sendStatus(400);
 
-    const originalPrice = daysRented * game.pricePerDay;
+    const originalPrice = gamePricePerDay * daysRented
 
     await connectionDB.query(
-      'INSERT INTO rentals ("customerId", "gameId", "rentDate", "daysRented", "returnDate", "originalPrice", "delayFee") VALUES ($1, $2, $3, $4, null, $5, null)',
-      [customerId, gameId, dayjs().format(), daysRented, originalPrice],
-    );
+        `INSERT INTO rentals ("customerId", "gameId", "daysRented", "rentDate", "originalPrice") 
+        VALUES ($1, $2, $3, $4, $5)`,
+        [customerId, gameId, daysRented, rentDate, originalPrice])
+    return res.sendStatus(201)
 
-    return res.sendStatus(201);
-  } catch (err) {
-    return res.status(400).send(err);
-  }
+} catch (err) {
+    console.log(err)
+    return res.sendStatus(400)
+}
 }
 
 export async function findAll(req, res) {

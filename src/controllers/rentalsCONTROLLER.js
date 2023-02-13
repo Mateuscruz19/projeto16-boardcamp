@@ -9,6 +9,15 @@ export async function create(req, res) {
 
     const gamePrice = await connectionDB.query('SELECT * FROM games WHERE id = $1', [gameId])
     const gamePricePerDay =  gamePrice.rows[0].pricePerDay    
+
+    const quantityGameRented = await connectionDB.query('SELECT count(id) as quantity FROM rentals WHERE "gameId" = $1 AND "returnDate" IS NULL', [game.id]);
+
+    let game = await connectionDB.query('SELECT * FROM games WHERE "id" = $1', [gameId]);
+    game = game.rows[0];
+    
+    if (!game) return res.sendStatus(409);
+    if (game.stockTotal <= quantityGameRented.rows[0].quantity) return res.sendStatus(400);
+
     const originalPrice = gamePricePerDay * daysRented
 
     await connectionDB.query(
